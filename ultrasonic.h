@@ -6,6 +6,6 @@
 
 void ultrasonic_initial(ultrasonic *);
 float ultrasonic_distance(ultrasonic *);
-float ultrasonic_distance_(ultrasonic *, uint8_t debug=0);
+float ultrasonic_distance_(ultrasonic *, uint8_t debug = 0);
 
 #endif
