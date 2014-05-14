@@ -17,3 +17,13 @@ uint8_t sharp_b = 5;                                      // pripojenie Sharp za
 //ultrazvuk
 ultrasonic uz_f = {35,34};                                      // Predny ultrazvukovy senzor
 ultrasonic uz_b = {33,32};                                      // Zadny ultrazvukovy senzor
+
+// krokace
+//step,sm,enable,dir,reset,home,faul,step_number,mux,mux_out
+motor_control motor_l = {31,{26,27},22,28,0,50,2,0,true,43};    // Krokovy motor lavy
+motor_control motor_r = {31,{26,27},23,29,3,52,5,0,true,43};    // Krokovy motor prav
+motor_control motor_f = {31,{26,27},24,30,6,52,8,0,true,43};   // krokovy motor predny
+motor_control motor_b = {31,{26,27},25,30,9,52,11,0,true,43};   // krokovy motor zadny
+bool b_mod[4] = {false,false,false,false};                     	// zap/vyp,smer,zap/vyp,smer krokovych motorv
+bool kontrola = true;                                           // premenna pre funkciu hladaj_sever
+motor_wheel wheel = {3.3,2048.0,26.0,8400.0};                          // specifikacia kolesa a motora

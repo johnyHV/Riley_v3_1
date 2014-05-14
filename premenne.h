@@ -11,7 +11,7 @@
 #define BAD_IR 5
 #define RIGHT 10
 #define LEFT 100
-
+#define CENTER 70
 /**
  *
  * @param Struktura
@@ -29,7 +29,7 @@ struct motor_control {
         uint16_t number_step; // pocet spravenych krokov
 	bool    mux;     // stav INIT pinu MUX pre jeho funkcnost
 	uint8_t mux_out; // vystup/vstup MUX
-        uint8_t smer_otocenia;   // smer posledneho otacania motora. true - LEFT, false - RIGHT
+        uint8_t smer_otocenia;   // smer posledneho otacania motora. true - LEFT, false - RIGHT, center
         uint8_t uhol_otocenia;   // uhol otocenia
 };
 
@@ -95,6 +95,14 @@ extern  uint8_t sharp_b;                                      // pripojenie Shar
 extern ultrasonic uz_f;                                      // Predny ultrazvukovy senzor
 extern ultrasonic uz_b;                                      // Zadny ultrazvukovy senzor
 
-
+// krokace
+//step,sm,enable,dir,reset,home,faul,step_number,mux,mux_out
+extern motor_control motor_l;    // Krokovy motor lavy
+extern motor_control motor_r;   // Krokovy motor prav
+extern motor_control motor_f;   // krokovy motor predny
+extern motor_control motor_b;   // krokovy motor zadny
+extern bool b_mod[4];           // zap/vyp,smer,zap/vyp,smer krokovych motorv
+extern bool kontrola;           // premenna pre funkciu hladaj_sever
+extern motor_wheel wheel;       // specifikacia kolesa a motora
 	
 #endif

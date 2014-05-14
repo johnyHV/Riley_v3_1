@@ -21,7 +21,7 @@ float head_distance(ultrasonic uz, uint8_t sharp) {
     
     if ((d_uz >= 15) && (d_uz <= 150)){						// kontrola vzdialenosti pre hranice sharp
         if (d_ir < 150) {
-            if ((d_uz >= d_ir-7) && (d_uz <= d_ir+7)){
+            if ((d_uz >= d_ir-20) && (d_uz <= d_ir+20)){
                 return (d_uz + d_ir) /2;
             }
             else
@@ -38,13 +38,25 @@ float head_distance(ultrasonic uz, uint8_t sharp) {
 
 /**
  *
- * @info otoci hlavu o vybrany uhol
+ * @info resetne pocet krokov pre motor hlavy
  * @param 
  * @param 
  * @return 
  */
-void head_reset_step(motor_control motor) {
-    motor.number_step == 0;
+void head_reset_step(motor_control *motor) {
+    motor->number_step = 0;
+}
+
+/**
+ *
+ * @info resetne pocet krokov pre motor hlavy
+ * @param 
+ * @param 
+ * @return 
+ */
+void head_reset_step(motor_control *motor_f,motor_control *motor_b){
+    motor_f->number_step = 0;
+    motor_b->number_step = 0;
 }
 
 /**
@@ -54,40 +66,37 @@ void head_reset_step(motor_control motor) {
  * @param 
  * @return 
  */
-void head_reset_step(motor_control motor_f,motor_control motor_b){
-    motor_f.number_step == 0;
-    motor_b.number_step == 0;
-}
-
-/**
- *
- * @info otoci hlavu o vybrany uhol
- * @param 
- * @param 
- * @return 
- */
-uint16_t rotate_head_angle(motor_control motor, motor_wheel wheel, float uhol, uint8_t smer) { 
+uint16_t rotate_head_angle(uint8_t motor, float uhol, uint8_t smer) { 
     int kroky = (uhol / (360.0 / wheel.step_360));
-    motor_enable(&motor,true);
     bool dir = false;
-    motor.smer_otocenia = smer;
-    motor.uhol_otocenia = uhol;
-    
     if (smer == LEFT)
         dir = true;    // v pravo
     else
         dir = false;     // v lavo
+    
+    if (motor == FRONT) {
+        motor_f.smer_otocenia = smer;
+        motor_f.uhol_otocenia = uhol;
+        motor_enable(&motor_f,true);
         
-    
-    for (uint16_t i=0;i<=kroky;i++){
-        motor_step(&motor, &wheel, dir);
-        delayMicroseconds(2000);
-
+        for (uint16_t i=0;i<=kroky;i++){
+            motor_step(&motor_f, &wheel, dir);
+            delayMicroseconds(2000);
+        }
+        motor_enable(&motor_f,false);
     }
-    motor_enable(&motor,false);
-    
-    return motor.number_step;
-                   
+    else if (motor == BACK) {
+        motor_b.smer_otocenia = smer;
+        motor_b.uhol_otocenia = uhol;
+        motor_enable(&motor_b,true);
+        
+        for (uint16_t i=0;i<=kroky;i++){
+            motor_step(&motor_b, &wheel, dir);
+            delayMicroseconds(2000);
+        }
+        motor_enable(&motor_b,false);
+    }
+    //return motor.number_step;
 }
 
 /**
@@ -97,7 +106,7 @@ uint16_t rotate_head_angle(motor_control motor, motor_wheel wheel, float uhol, u
  * @param 
  * @return 
  */
-uint16_t rotate_head_angle(motor_control motor_f,motor_control motor_b, motor_wheel wheel, float uhol, uint8_t smer) {
+uint16_t rotate_head_angle(float uhol, uint8_t smer) {
     int kroky = (uhol / (360.0 / wheel.step_360));
     bool dir = false;
     
@@ -113,7 +122,7 @@ uint16_t rotate_head_angle(motor_control motor_f,motor_control motor_b, motor_wh
     }
     motor_enable(&motor_f, &motor_b, false, false);
     
-    return motor_f.number_step;
+    //return motor_f.number_step;
 }
 
 /**

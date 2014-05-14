@@ -41,18 +41,10 @@ float angle_twist(motor_control *motor, motor_wheel * wheel) {
 /**
  *
  * @info Zisti realnu hodnotu vzdialenosti pri nezhode UZ a SHARP senzoru
- * @param motor_l - pripojenie laveho motora k MCU
- * @param motor_r - pripojenie praveho motora k MCU
- * @param motor_wheel wheel - parametre kolesa a krokoveho motora
- * @param ultrasonic uz_f - pripojenie predneho UZ senzora k MCU
- * @param ultrasonic uz_b - pripojenie zadneho UZ senzora k MCU
- * @param uint8_t sharp_f - pripojenie predneho SHARP senzora k MCU
- * @param uint8_t sharp_b - pripojenie zaneho SHAPR senzora k MCU
- * @param IR_proximity - pripojenie proximitno reflexnych senzorov k MCU
  * @param bool smer - smer jazdy 
  * @return float
  */
-float senzor_check(motor_control motor_l, motor_control motor_r, motor_wheel wheel,  uint8_t smer) {
+float senzor_check(uint8_t smer) {
     if (smer == FRONT) {
         Serial.println("start kontroly");
         float f_sharp_d = sharp_distance(sharp_f);              // vzdialenost v povodnej polohe z sharp
@@ -167,14 +159,11 @@ float senzor_check(motor_control motor_l, motor_control motor_r, motor_wheel whe
 /**
  *
  * @info Otoci robota o pozadovany uhol
- * @param motor_l - pripojenie laveho motora k MCU
- * @param motor_r - pripojenie praveho motora k MCU
- * @param motor_wheel wheel - parametre kolesa a krokoveho motora
  * @param float uhol - uhol o aky sa ma robot otocit
  * @param int smer - smer otocenia
  * @return float
  */
-void otocenie_robota(motor_control motor_l, motor_control motor_r, motor_wheel wheel, float uhol, uint8_t smer) {
+void otocenie_robota(float uhol, uint8_t smer) {
     
     float obvod =  (3.14 * wheel.d * uhol) / 360.0;
     int kroky = (obvod / (2.0 * 3.14 * wheel.r)) * wheel.step_360;
@@ -202,13 +191,22 @@ void otocenie_robota(motor_control motor_l, motor_control motor_r, motor_wheel w
       
 }
 
-void prekazka(motor_control motor_l, motor_control motor_r, motor_control motor_f, motor_control motor_b, motor_wheel wheel) {
+/**
+ *
+ * @info vyhne sa prekazke
+ * @return void
+ */
+void prekazka() {
     
-    head_reset_step(motor_f,motor_b);
-    otocenie_robota(motor_l,motor_r,wheel,90,RIGHT);
+    head_reset_step(&motor_f,&motor_b);
+    otocenie_robota(90,RIGHT);    
+    rotate_head_angle(FRONT,90,LEFT);
+    motor_f.smer_otocenia = LEFT;
+    motor_f.uhol_otocenia = 90;
+    rotate_head_angle(BACK,90,RIGHT);
+    motor_b.smer_otocenia = RIGHT;
+    motor_b.uhol_otocenia = 90;
     
-    motor_f.number_step = rotate_head_angle(motor_f,wheel,90,LEFT);
-    motor_b.number_step = rotate_head_angle(motor_b,wheel,90,RIGHT);
     uint8_t front = head_distance(uz_f,sharp_f);
     uint8_t back = head_distance(uz_b,sharp_b);
     Serial.print("Front: "); Serial.println(front);
@@ -223,17 +221,45 @@ void prekazka(motor_control motor_l, motor_control motor_r, motor_control motor_
         Serial.println("Hodnoty su rovnake: ");
         uint8_t front = head_distance(uz_f,sharp_f);
         uint8_t back = head_distance(uz_b,sharp_b);
-        uint8_t bez_vzdial = 4;
-        
-            Serial.print("Front: "); Serial.println(front);
-            Serial.print("Back: "); Serial.println(back);
-        
+        uint8_t bez_vzdial = 3;
+        uint8_t n_back =0;
+        uint8_t n_front =0;
+        Serial.print("Front: "); Serial.println(front);
+        Serial.print("Back: "); Serial.println(back);
+        uint8_t stav = 0;
         bool cykli = true;
         do {
+            
             Serial.print("Kriticke body: "); Serial.println(proximity_critical_status(&proximity));       
             if (!proximity_critical_status(&proximity)) {                         // zisti status kritickych bodov
                 Serial.println("Kriticke body OK");
-                if((head_distance(uz_f,sharp_f) < front+4)&&(head_distance(uz_f,sharp_f) > front-4)) {                   // zisti ci uz skoncila prekazka pred prednou snimacou hlavou, ak nie ide dalej
+                uint8_t poistka_f =0;
+                uint8_t poistka_b =0;
+                
+                n_front = head_distance(uz_f,sharp_f);
+                n_back = head_distance(uz_b,sharp_b);
+                
+                while (n_front == 0){                        // kontrola pre pripadnu 0 hodnotu z hlavy. ak je 0 hodnota 10 krat, neskusa znova merat
+                    n_front = head_distance(uz_f,sharp_f);
+                    poistka_f++;
+                    if (poistka_f >5)
+                        break;
+                    //Serial.print("poistka: "); Serial.println(poistka_f);
+                }
+                while (back == 0) {
+                    back = head_distance(uz_b,sharp_b);
+                    poistka_b++;
+                    if (poistka_b > 5)
+                        break;
+                }
+                
+                Serial.print("Predna: "); Serial.println(n_front);
+                Serial.print("Zadna: "); Serial.println(n_back);
+                Serial.print("front: "); Serial.println(front);
+                Serial.print("back: "); Serial.println(back);
+                
+                if((n_front < front+10)&&(n_front > front-10)) {                   // zisti ci uz skoncila prekazka pred prednou snimacou hlavou, ak nie ide dalej
+                    Serial.println("Predna OK");
                     int kroky =  ((5.0 / (2.0 *3.14*wheel.r)) * 2048.0);
                     motor_enable(&motor_l,&motor_r,true,true);
                     for (uint16_t i=0;i<kroky;i++) {
@@ -242,7 +268,8 @@ void prekazka(motor_control motor_l, motor_control motor_r, motor_control motor_
                     }
                     motor_enable(&motor_l,&motor_r,false,false);
                 }
-                else if((head_distance(uz_b,sharp_b) < back+4)&&(head_distance(uz_b,sharp_b) > back-4)) {                  // ak uz prekazka nie je pred prednou snimacou hlavou, vyjde 5cm
+                else if((n_back < back+10)&&(n_back > back-10)) {                  // ak uz prekazka nie je pred prednou snimacou hlavou, ide pokial nie je aj pred zadnou
+                    Serial.println("Zadna OK");
                     int kroky =  ((5.0 / (2.0 *3.14*wheel.r)) * 2048.0);
                     motor_enable(&motor_l,&motor_r,true,true);
                     for (uint16_t i=0;i<kroky;i++) {
@@ -251,87 +278,164 @@ void prekazka(motor_control motor_l, motor_control motor_r, motor_control motor_
                     }
                     motor_enable(&motor_l,&motor_r,false,false);
                 }
-                else {                                                          // ak uz je aj zadna mimo prekazku, vyjde z slucky
-                    if (bez_vzdial > 1 ) {
-                        int kroky =  ((5.0 / (2.0 *3.14*wheel.r)) * 2048.0);
-                        motor_enable(&motor_l,&motor_r,true,true);
-                        for (uint16_t i=0;i<kroky;i++) {
-                            motor_step(&motor_l,&motor_r,&wheel, true, false);
-                            delayMicroseconds(1750);
-                        }
-                        motor_enable(&motor_l,&motor_r,false,false);
-                        bez_vzdial--;
+                else if (bez_vzdial > 1 ) {                                                                                                  // ak uz je aj zadna mimo prekazku, vyjde z slucky
+                    Serial.println("Dodatocny posun");
+                    int kroky =  ((5.0 / (2.0 *3.14*wheel.r)) * 2048.0);
+                    motor_enable(&motor_l,&motor_r,true,true);
+                    for (uint16_t i=0;i<kroky;i++) {
+                        motor_step(&motor_l,&motor_r,&wheel, true, false);
+                        delayMicroseconds(1750);
+                    }
+                    motor_enable(&motor_l,&motor_r,false,false);
+                    bez_vzdial--;
+                }
+                else {
+                    if (stav == 0){
+                        bez_vzdial = 3;
+                        Serial.println("Zmena stavu na 1 + otocka");
+                        otocenie_robota(90,LEFT);
+                        front = head_distance(uz_f,sharp_f);
+                        back = head_distance(uz_b,sharp_b);
+                        stav++;
                     }
                     else
                         cykli = false;
-                }
+                }    
             }
             else {
                 cykli = false;
             }    
         } while(cykli);
         
+        if (motor_f.smer_otocenia == LEFT)
+            head_center(motor_f,wheel,RIGHT);
+        else if (motor_f.smer_otocenia == RIGHT)
+            head_center(motor_f,wheel,LEFT);
+        
+        motor_f.smer_otocenia = CENTER;
+        motor_f.uhol_otocenia = 0;
+        head_reset_step(&motor_f);
     }
-     otocenie_robota(motor_l,motor_r,wheel,90,LEFT);
-        head_center(motor_f,wheel,RIGHT);
-        head_center(motor_b,wheel,LEFT);       
-              
-  
-    /*
-    int dlzka = 35;
-    
-    if (head_distance(uz_f,sharp_f) > 35) {                         // zisti ci pred nim je viac miesta ako 35cm, co je dlzka robota
-    while(){
+    else {
+        otocenie_robota(90,LEFT);
         
+        if (motor_f.smer_otocenia == LEFT)
+            head_center(motor_f,wheel,RIGHT);
+        else if (motor_f.smer_otocenia == RIGHT)
+            head_center(motor_f,wheel,LEFT);
+        
+        motor_f.smer_otocenia = CENTER;
+        motor_f.uhol_otocenia = 0;
+        head_reset_step(&motor_f);
     }
-        
-    if (head_distance(uz_f,sharp_f) > dlzka){
-        
-        
-        
-        motor_enable(motor_l,motor_r,true,true);
-        
-        
-        
-        
-                                         // 0.17578125 = 360/2048
-        
-        
-        
-        
-        motor_step(motor_l,motor_r,wheel,true,false);
-         */
-    
-        
-    
 }
 
-void vzdialenost(motor_control motor_l, motor_control motor_r, motor_wheel wheel,motor_control motor_f, motor_control motor_b, uint8_t smer) {
-    //uint8_t front = head_distance(uz_f,sharp_f);
-    uint8_t back = head_distance(uz_b,sharp_b);
+/**
+ *
+ * @info odide od prekazky o 13cm
+ * @param uint8?t smer - smer v ktorom ma ist prec od steny
+ * @return void
+ */
+void vzdialenost_stena(uint8_t smer) {
+
+    if (motor_f.smer_otocenia == CENTER){                                       // pokial je to center, otoci sa v proti smere otacania robota aby sa pozeralo na stenu
+        
+        uint8_t d_smer;
+        if (smer == LEFT)
+            d_smer = RIGHT;
+        else
+            d_smer = LEFT;
+        
+        rotate_head_angle(FRONT,90,d_smer);
+        motor_f.smer_otocenia = d_smer;
+        Serial.print("Smer otocenia"); Serial.println(d_smer);
+        motor_f.uhol_otocenia = 90;
+    }
+    else if (motor_f.smer_otocenia != smer) {
+        rotate_head_angle(FRONT,90,smer);
+        motor_f.smer_otocenia = smer;
+        motor_f.uhol_otocenia = 180; 
+    }
+    /* pre zadnu snimaciu hlavu nie prednu
+    if (motor_f.smer_otocenia == CENTER){                                       // pokial je to center, otoci sa v proti smere otacania robota aby sa pozeralo na stenu
+        rotate_head_angle(BACK,90,smer);
+        motor_f.smer_otocenia = smer;
+        motor_f.uhol_otocenia = 90;
+    }
+    else if (motor_f.smer_otocenia != smer) {
+        uint8_t d_smer;
+         if (smer == LEFT)
+                d_smer = RIGHT;
+        else
+                d_smer = LEFT;
+        rotate_head_angle(BACK,90,d_smer);
+        motor_f.smer_otocenia = d_smer;
+        motor_f.uhol_otocenia = 180;    
+    }
+    */
+    uint8_t front = head_distance(uz_f,sharp_f);
     
     
-    if (back < 28) {
+    if (front < 28) {
         Serial.println("Vzdialenost do 13cm");
-        float odstup = 28 - back;
+        float odstup = 28 - front;
         float obvod = 2.0*3.14*wheel.r;
         float uhol = RadiansToDegrees(atan2(odstup,obvod));
-        Serial.print("Uhol pre otocenie: "); Serial.println(uhol);
         
-        otocenie_robota(motor_l,motor_r,wheel, uhol,smer);
+        otocenie_robota(uhol,smer);
         motor_enable(&motor_l,&motor_r,true,true);
         for (uint16_t i = 0;i<=2048;i++){
             motor_step(&motor_l,&motor_r,&wheel,true,false);
             delayMicroseconds(1800);
         }
         motor_enable(&motor_l,&motor_r,false,false);
-        if (smer == LEFT)
-            otocenie_robota(motor_l,motor_r,wheel, uhol,RIGHT);
-        else if (smer == RIGHT)
-            otocenie_robota(motor_l,motor_r,wheel, uhol,LEFT);
+        if (smer == LEFT) {
+            otocenie_robota(uhol,RIGHT);
+        }
+        else if (smer == RIGHT) {
+            otocenie_robota(uhol,LEFT);
+        }
+        if (motor_f.smer_otocenia == LEFT)
+            head_center(motor_f,wheel,RIGHT);
+        else if (motor_f.smer_otocenia == RIGHT)
+            head_center(motor_f,wheel,LEFT);
+        
+        motor_f.smer_otocenia = CENTER;
+        motor_f.uhol_otocenia = 0;
+        head_reset_step(&motor_f);
     }
-    else if (back > 30) {
+    else if (front > 28) {
         Serial.println("Vzdialenost nad 15cm");
+        float odstup = front - 28;
+        float obvod = 2.0*3.14*wheel.r;
+        float uhol = RadiansToDegrees(atan2(odstup,obvod));
+        
+        uint8_t n_smer;
+        if (smer == LEFT)
+            n_smer = RIGHT;
+        else
+            n_smer = LEFT;
+        
+        otocenie_robota(uhol,n_smer);
+        motor_enable(&motor_l,&motor_r,true,true);
+        for (uint16_t i = 0;i<=2048;i++){
+            motor_step(&motor_l,&motor_r,&wheel,true,false);
+            delayMicroseconds(1800);
+        }
+        motor_enable(&motor_l,&motor_r,false,false);
+        if (n_smer == LEFT) {
+            otocenie_robota(uhol,RIGHT);
+        }
+        else if (n_smer == RIGHT) {
+            otocenie_robota(uhol,LEFT);
+        }
+        if (motor_f.smer_otocenia == LEFT)
+            head_center(motor_f,wheel,RIGHT);
+        else if (motor_f.smer_otocenia == RIGHT)
+            head_center(motor_f,wheel,LEFT);
+        
+        motor_f.smer_otocenia = CENTER;
+        motor_f.uhol_otocenia = 0;
+        head_reset_step(&motor_f);
     }
-    
 }

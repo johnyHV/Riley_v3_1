@@ -15,21 +15,7 @@
 #include "LM75.h"
 #include "mag_and_acc.h"
 #include "calculation.h"
-
-
-
-// krokace
-//step,sm,enable,dir,reset,home,faul,step_number,mux,mux_out
-motor_control motor_l = {31,{26,27},22,28,0,50,2,0,true,43};    // Krokovy motor lavy
-motor_control motor_r = {31,{26,27},23,29,3,52,5,0,true,43};    // Krokovy motor prav
-motor_control motor_f = {31,{26,27},24,30,6,52,8,0,true,43};   // krokovy motor predny
-motor_control motor_b = {31,{26,27},25,30,9,52,11,0,true,43};   // krokovy motor zadny
-bool b_mod[4] = {false,false,false,false};                     	// zap/vyp,smer,zap/vyp,smer krokovych motorv
-bool kontrola = true;                                           // premenna pre funkciu hladaj_sever
-static motor_wheel wheel = {3.3,2048.0,27.0,8400.0};                          // specifikacia kolesa a motora
-
-
-
+#include <Scheduler.h>
 
 //teplotne senzory
 LM75 temp_u(0x48);                                              // 72 - horny teplotny senzor
@@ -66,7 +52,9 @@ void setup() {
 	motor_enable(&motor_l,&motor_r,false,false);            //vypnutie pohonovych motorov
 	motor_enable(&motor_f,&motor_b,false,false);            //vypnutie motorov pre hlavy
 	motor_set_mod(&motor_l,0);
-        
+        motor_f.smer_otocenia = CENTER;
+        motor_b.smer_otocenia = CENTER;
+
 	Serial.println("|");Serial.println("| I2C");
 	Wire.begin();                                           // zapnutie I2C
 	
@@ -118,6 +106,8 @@ void setup() {
         Serial.println((((360.0 * 5.0) / (2.0 * 3.14 * 3.4)) / (360.0/2048.0)));
         digitalWrite(4,LOW);
         digitalWrite(7,HIGH);
+        
+
 }
 
 void loop() {
@@ -187,7 +177,7 @@ void loop() {
 		else if ( incomingByte == 121) {						// y - scan priestoru
 			scan(); }
                 else if (incomingByte == 107) {                                                 // k - kontrola vzdialenosti
-                    Serial.println(senzor_check(motor_l,motor_r,wheel,FRONT));
+                    Serial.println(senzor_check(FRONT));
                 }
                 else if (incomingByte == 104) {                                                 // h - snimacia hlava predna
                     Serial.print("Front: "); Serial.println(head_distance(uz_f,sharp_f));
@@ -196,11 +186,30 @@ void loop() {
                     //motor_f.number_step = rotate_head_angle(motor_f,wheel,90,LEFT);
                     //delay(1000);
                     //Serial.print("Kroky motora v slucke: "); Serial.println(motor_f.number_step);
-                    //head_center(motor_f, wheel, RIGHT);
-                    //prekazka(motor_l,motor_r,motor_f,motor_b,wheel);
-                    motor_b.number_step = rotate_head_angle(motor_b,wheel,90,RIGHT);
-                    vzdialenost(motor_l,motor_r,wheel,motor_f,motor_b,RIGHT);
-                    head_center(motor_b,wheel,LEFT);
+                    //head_center(motor_f, wheel, RIGHT);y
+                }
+                else if (incomingByte == 108) {
+                    vzdialenost_stena(RIGHT);
+                    //delay(5000);
+                    //vzdialenost_stena(RIGHT);
+                    
+                    motor_enable(&motor_l,&motor_r,true,true);
+                    while (!proximity_critical_status(&proximity)) {
+                        motor_step(&motor_l,&motor_r,&wheel,true,false);
+                        delayMicroseconds(1800);
+                    }
+                    motor_enable(&motor_l,&motor_r,false,false);
+                    
+                    prekazka();
+                    vzdialenost_stena(RIGHT);
+
+                    motor_enable(&motor_l,&motor_r,true,true);
+                    for (uint16_t i = 0;i<=2048*2;i++){
+                        motor_step(&motor_l,&motor_r,&wheel,true,false);
+                        delayMicroseconds(1800);
+                    }
+                    motor_enable(&motor_l,&motor_r,false,false);
+                    
                 }
 		
 		Serial.print("I received: ");

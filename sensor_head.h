@@ -8,10 +8,10 @@
 
 
 float head_distance(ultrasonic uz, uint8_t sharp);
-void head_reset_step(motor_control motor); 
-void head_reset_step(motor_control motor_f,motor_control motor_b);
-uint16_t rotate_head_angle(motor_control motor, motor_wheel wheel, float uhol, uint8_t smer);
-uint16_t rotate_head_angle(motor_control motor_f,motor_control motor_b, motor_wheel wheel, float uhol, uint8_t smer);
+void head_reset_step(motor_control *motor); 
+void head_reset_step(motor_control *motor_f,motor_control *motor_b);
+uint16_t rotate_head_angle(uint8_t motor, float uhol, uint8_t smer);
+uint16_t rotate_head_angle( float uhol, uint8_t smer);
 void head_center(motor_control motor,motor_wheel wheel, uint8_t smer);
 void head_center(motor_control motor_f,motor_control motor_b,motor_wheel wheel, uint8_t smer);
 
